@@ -1,0 +1,389 @@
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+#gameContainer {
+  background: #0a0a2e;
+  border-radius: 16px;
+  overflow: hidden;
+  width: 100%;
+  font-family: monospace;
+  border: 2px solid #534ab7;
+}
+canvas#gc {
+  display: block;
+  width: 100%;
+  height: 320px;
+  image-rendering: pixelated;
+}
+#ui {
+  background: #06061a;
+  padding: 8px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid #26215c;
+}
+#ui span { font-size: 11px; color: #afa9ec; }
+#ui .lives { color: #d4537e; letter-spacing: 3px; }
+#msgBox {
+  display: none;
+  background: #0a0a2e;
+  padding: 24px 16px;
+  text-align: center;
+  border-top: 1px solid #26215c;
+}
+#msgBox .msg-title { font-size: 13px; color: #fff; margin-bottom: 8px; font-family: monospace; }
+#msgBox .msg-sub { font-size: 10px; color: #9f77dd; line-height: 1.8; font-family: monospace; }
+#msgBox button {
+  margin-top: 14px;
+  background: #26215c;
+  color: #afa9ec;
+  border: 1px solid #534ab7;
+  border-radius: 8px;
+  padding: 8px 20px;
+  font-size: 11px;
+  font-family: monospace;
+  cursor: pointer;
+}
+#msgBox button:hover { background: #3c3489; }
+#controls {
+  background: #06061a;
+  padding: 8px 16px;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  border-top: 1px solid #26215c;
+}
+#controls button {
+  background: #12122a;
+  color: #afa9ec;
+  border: 1px solid #3c3489;
+  border-radius: 8px;
+  padding: 8px 18px;
+  font-size: 12px;
+  font-family: monospace;
+  cursor: pointer;
+  user-select: none;
+}
+#controls button:active { background: #26215c; }
+</style>
+
+<div id="gameContainer">
+  <canvas id="gc" width="680" height="320"></canvas>
+  <div id="ui">
+    <span id="levelLabel">nivel 1 — la logia</span>
+    <span class="lives" id="livesLabel">♥ ♥ ♥</span>
+    <span id="scoreLabel">corazones: 0</span>
+  </div>
+  <div id="msgBox">
+    <div class="msg-title" id="msgTitle"></div>
+    <div class="msg-sub" id="msgSub"></div>
+    <button id="msgBtn">continuar</button>
+  </div>
+  <div id="controls">
+    <button id="btnLeft">◀ mover</button>
+    <button id="btnJump">▲ saltar</button>
+    <button id="btnRight">mover ▶</button>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('gc');
+const ctx = canvas.getContext('2d');
+const W = 680, H = 320;
+canvas.width = W; canvas.height = H;
+
+const LEVELS = [
+  {
+    name: "nivel 1 — la logia",
+    bg: ["#0a0a2e","#12124a"],
+    ground: "#534ab7",
+    msg: "Era de noche en La Logia.\nManu iba pasando... y te vio.",
+    msgBtn: "siguiente nivel",
+    platforms: [
+      {x:0,y:270,w:200,h:14},
+      {x:240,y:230,w:100,h:14},
+      {x:380,y:190,w:100,h:14},
+      {x:510,y:150,w:120,h:14},
+      {x:610,y:270,w:70,h:14}
+    ],
+    hearts: [{x:260,y:205},{x:410,y:165},{x:545,y:125}],
+    goal: {x:645,y:238,label:"La Logia"}
+  },
+  {
+    name: "nivel 2 — represa riogrande",
+    bg: ["#041f2e","#0a3a2e"],
+    ground: "#1d9e75",
+    msg: "Una represa, una cobija,\ncomida y los dos. Dia especial.",
+    msgBtn: "siguiente nivel",
+    platforms: [
+      {x:0,y:270,w:180,h:14},
+      {x:210,y:240,w:80,h:14},
+      {x:320,y:200,w:80,h:14},
+      {x:430,y:165,w:80,h:14},
+      {x:540,y:210,w:80,h:14},
+      {x:610,y:270,w:70,h:14}
+    ],
+    hearts: [{x:230,y:215},{x:450,y:140},{x:555,y:185}],
+    goal: {x:640,y:238,label:"Riogrande"}
+  },
+  {
+    name: "nivel 3 — el castillo",
+    bg: ["#1a0d12","#2e0d1a"],
+    ground: "#993556",
+    msg: "Museo El Castillo.\nEn voz baja te pidio ser su novia.\nFue intimo. Fue perfecto.",
+    msgBtn: "ultimo nivel",
+    platforms: [
+      {x:0,y:270,w:150,h:14},
+      {x:180,y:220,w:90,h:14},
+      {x:300,y:175,w:90,h:14},
+      {x:420,y:135,w:80,h:14},
+      {x:530,y:175,w:80,h:14},
+      {x:610,y:270,w:70,h:14}
+    ],
+    hearts: [{x:200,y:193},{x:440,y:108},{x:545,y:150}],
+    goal: {x:640,y:238,label:"El Castillo"}
+  },
+  {
+    name: "nivel 4 — carnavales de pasto",
+    bg: ["#1a1000","#2e1a00"],
+    ground: "#ba7517",
+    msg: "Pasto en diciembre.\nNegros y Blancos.\nSu tierra, tu primera vez alli.",
+    msgBtn: "final",
+    platforms: [
+      {x:0,y:270,w:130,h:14},
+      {x:160,y:235,w:80,h:14},
+      {x:265,y:195,w:80,h:14},
+      {x:370,y:155,w:80,h:14},
+      {x:470,y:195,w:80,h:14},
+      {x:570,y:235,w:80,h:14},
+      {x:610,y:270,w:70,h:14}
+    ],
+    hearts: [{x:175,y:208},{x:385,y:128},{x:480,y:168}],
+    goal: {x:638,y:238,label:"Pasto"}
+  }
+];
+
+const FINAL = {
+  title: "10 meses completados",
+  sub: "Mon petit ciel...\ngracias por cada nivel,\ncada pelea superada,\ncada tititi compartido.\nTe amo, Manu."
+};
+
+let level=0, lives=3, score=0;
+let keys={left:false,right:false,jump:false};
+let player, coins, goalReached, gameOver, showingMsg;
+let jumpPressed=false;
+
+function initLevel(){
+  const L=LEVELS[level];
+  player={x:30,y:220,w:18,h:22,vx:0,vy:0,onGround:false,frame:0,frameTimer:0,dir:1};
+  coins=L.hearts.map(h=>({...h,collected:false}));
+  goalReached=false; gameOver=false; showingMsg=false;
+  document.getElementById('levelLabel').textContent=L.name;
+  updateUI();
+  hideMsgBox();
+}
+
+function updateUI(){
+  const h='♥ '.repeat(lives).trim()||'';
+  document.getElementById('livesLabel').textContent=h||'---';
+  document.getElementById('scoreLabel').textContent='corazones: '+score;
+}
+
+function showMsgBox(title,sub,btn,cb){
+  showingMsg=true;
+  const box=document.getElementById('msgBox');
+  box.style.display='block';
+  document.getElementById('msgTitle').textContent=title;
+  document.getElementById('msgSub').textContent=sub;
+  const b=document.getElementById('msgBtn');
+  b.textContent=btn;
+  b.onclick=()=>{ hideMsgBox(); cb(); };
+}
+function hideMsgBox(){
+  document.getElementById('msgBox').style.display='none';
+  showingMsg=false;
+}
+
+function getPlatforms(){
+  const L=LEVELS[level];
+  return [{x:0,y:H-50,w:W,h:14,ground:true},...L.platforms];
+}
+
+function update(){
+  if(showingMsg||gameOver) return;
+  const p=player;
+  const speed=3.2, jumpForce=-9, gravity=0.45;
+
+  if(keys.left){p.vx=-speed;p.dir=-1;}
+  else if(keys.right){p.vx=speed;p.dir=1;}
+  else p.vx*=0.75;
+
+  if(jumpPressed&&p.onGround){p.vy=jumpForce;p.onGround=false;}
+  jumpPressed=false;
+
+  p.vy+=gravity;
+  p.x+=p.vx; p.y+=p.vy;
+
+  p.onGround=false;
+  for(const pl of getPlatforms()){
+    if(p.x+p.w>pl.x&&p.x<pl.x+pl.w&&p.y+p.h>pl.y&&p.y+p.h<pl.y+pl.h+10&&p.vy>=0){
+      p.y=pl.y-p.h; p.vy=0; p.onGround=true;
+    }
+  }
+
+  if(p.x<0) p.x=0;
+  if(p.x+p.w>W) p.x=W-p.w;
+
+  if(p.y>H+20){
+    lives--;
+    updateUI();
+    if(lives<=0){
+      gameOver=true;
+      showMsgBox("game over","Perdiste todos los corazones.\nVuelve a intentarlo!","reiniciar",()=>{
+        lives=3;score=0;level=0;initLevel();
+      });
+    } else {
+      initLevel();
+    }
+    return;
+  }
+
+  p.frameTimer++;
+  if(p.frameTimer>8){p.frame=(p.frame+1)%2;p.frameTimer=0;}
+
+  for(const c of coins){
+    if(!c.collected&&Math.abs(p.x-c.x)<18&&Math.abs(p.y-c.y)<18){
+      c.collected=true; score++;updateUI();
+    }
+  }
+
+  const g=LEVELS[level].goal;
+  if(!goalReached&&Math.abs(p.x-g.x)<30&&Math.abs(p.y-(g.y-p.h))<30){
+    goalReached=true;
+    const L=LEVELS[level];
+    if(level<LEVELS.length-1){
+      showMsgBox(L.name.split('—')[1].trim(),L.msg,L.msgBtn,()=>{
+        level++; initLevel();
+      });
+    } else {
+      showMsgBox(FINAL.title,FINAL.sub,"cerrar con amor",()=>{
+        level=0;lives=3;score=0;initLevel();
+      });
+    }
+  }
+}
+
+function drawPixelChar(x,y,dir,frame,skinColor,shirtColor){
+  ctx.save();
+  ctx.translate(x+9,y+11);
+  if(dir<0) ctx.scale(-1,1);
+  ctx.fillStyle=skinColor;
+  ctx.fillRect(-5,-11,10,8);
+  ctx.fillStyle=shirtColor;
+  ctx.fillRect(-6,-3,12,8);
+  ctx.fillStyle=skinColor;
+  const legOff=frame===0?0:2;
+  ctx.fillRect(-5,5,5,7+legOff);
+  ctx.fillRect(0,5,5,7-legOff);
+  ctx.fillStyle=shirtColor;
+  ctx.fillRect(-9,-2,3,6);
+  ctx.fillRect(6,-2,3,6);
+  ctx.restore();
+}
+
+function drawHeart(x,y,collected){
+  if(collected) return;
+  ctx.save();
+  ctx.translate(x,y);
+  ctx.fillStyle='#d4537e';
+  ctx.beginPath();
+  ctx.moveTo(0,-6);
+  ctx.bezierCurveTo(0,-10,-10,-10,-10,-4);
+  ctx.bezierCurveTo(-10,2,0,8,0,10);
+  ctx.bezierCurveTo(0,8,10,2,10,-4);
+  ctx.bezierCurveTo(10,-10,0,-10,0,-6);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawGoalFlag(x,y,label){
+  ctx.fillStyle='#d4537e';
+  ctx.fillRect(x,y-30,3,30);
+  ctx.fillStyle='#ed93b1';
+  ctx.fillRect(x+3,y-30,16,10);
+  ctx.fillStyle='#ed93b1';
+  ctx.font='bold 9px monospace';
+  ctx.fillText(label,x-label.length*2,y+12);
+}
+
+function draw(){
+  const L=LEVELS[level];
+  ctx.fillStyle=L.bg[0];
+  ctx.fillRect(0,0,W,H);
+
+  for(let i=0;i<30;i++){
+    const sx=((i*73+level*37)%W);
+    const sy=((i*41+level*19)%200);
+    const sa=(Math.sin(Date.now()/800+i)*0.3+0.5);
+    ctx.fillStyle=`rgba(175,169,236,${sa.toFixed(2)})`;
+    ctx.fillRect(sx,sy,1+(i%2),1+(i%2));
+  }
+
+  ctx.fillStyle=L.ground;
+  ctx.fillRect(0,H-50,W,50);
+
+  for(const pl of LEVELS[level].platforms){
+    ctx.fillStyle=L.ground;
+    ctx.fillRect(pl.x,pl.y,pl.w,pl.h);
+    ctx.fillStyle='rgba(255,255,255,0.07)';
+    ctx.fillRect(pl.x,pl.y,pl.w,3);
+  }
+
+  for(const c of coins) drawHeart(c.x+9,c.y+9,c.collected);
+
+  const g=LEVELS[level].goal;
+  drawGoalFlag(g.x,g.y,g.label);
+
+  drawPixelChar(player.x,player.y,player.dir,player.frame,'#f5c4b3','#534ab7');
+
+  ctx.fillStyle='rgba(175,169,236,0.25)';
+  ctx.font='10px monospace';
+  ctx.fillText('← → saltar',8,H-58);
+}
+
+function loop(){
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowLeft'||e.key==='a') keys.left=true;
+  if(e.key==='ArrowRight'||e.key==='d') keys.right=true;
+  if((e.key===' '||e.key==='ArrowUp'||e.key==='w')&&!e.repeat){jumpPressed=true;keys.jump=true;}
+  e.preventDefault();
+},{passive:false});
+document.addEventListener('keyup',e=>{
+  if(e.key==='ArrowLeft'||e.key==='a') keys.left=false;
+  if(e.key==='ArrowRight'||e.key==='d') keys.right=false;
+  if(e.key===' '||e.key==='ArrowUp'||e.key==='w') keys.jump=false;
+});
+
+const btnL=document.getElementById('btnLeft');
+const btnR=document.getElementById('btnRight');
+const btnJ=document.getElementById('btnJump');
+btnL.addEventListener('touchstart',e=>{keys.left=true;e.preventDefault();},{passive:false});
+btnL.addEventListener('touchend',e=>{keys.left=false;e.preventDefault();},{passive:false});
+btnL.addEventListener('mousedown',()=>keys.left=true);
+btnL.addEventListener('mouseup',()=>keys.left=false);
+btnR.addEventListener('touchstart',e=>{keys.right=true;e.preventDefault();},{passive:false});
+btnR.addEventListener('touchend',e=>{keys.right=false;e.preventDefault();},{passive:false});
+btnR.addEventListener('mousedown',()=>keys.right=true);
+btnR.addEventListener('mouseup',()=>keys.right=false);
+btnJ.addEventListener('touchstart',e=>{jumpPressed=true;e.preventDefault();},{passive:false});
+btnJ.addEventListener('mousedown',()=>{jumpPressed=true;});
+
+initLevel();
+loop();
+</script>
